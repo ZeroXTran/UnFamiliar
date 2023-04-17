@@ -9,9 +9,11 @@ public class PlayerMovement2 : MonoBehaviour
 {
     // a fix to the weird character controller v1
     // minimal air control
+    public GroundChecker groundChecker;
+
     public CharacterController controller;
     public float verticalVelocity;
-    private float groundedTimer;        // to allow jumping when going down ramps
+    public float groundedTimer;        // to allow jumping when going down ramps
     public float baseSpeed;
     public float speed;
     public float jumpHeight = 1.75f;
@@ -19,6 +21,7 @@ public class PlayerMovement2 : MonoBehaviour
     public float pushForce = 2f;
     
     public bool movementLocked;
+    public bool canJump = true;
     public bool groundedPlayer;
 
     public Vector3 move;
@@ -87,6 +90,7 @@ public class PlayerMovement2 : MonoBehaviour
         // constant gravity keeps us pulled down when going down ramps
         verticalVelocity -= gravity * Time.deltaTime;
 
+        
         move = new Vector3(Input.GetAxis("Horizontal"), 0, 0); //move only left/right
 
         move *= speed; // adjust speed in unity
@@ -94,14 +98,17 @@ public class PlayerMovement2 : MonoBehaviour
         // allow jump as long as the player is on the ground
         if (Input.GetButtonDown("Jump"))
         {
-            // must have been grounded recently to allow jump ,aka coyote time
-            if (groundedTimer > 0)
+            if (canJump)
             {
-                // no more jumps until we land
-                groundedTimer = 0;
+                // must have been grounded recently to allow jump ,aka coyote time
+                if (groundedTimer > 0)
+                {
+                    // no more jumps until we land
+                    groundedTimer = 0;
 
-                // Physics dynamics formula for calculating jump up velocity based on height and gravity
-                verticalVelocity += Mathf.Sqrt(jumpHeight * 2 * gravity);
+                    // Physics dynamics formula for calculating jump up velocity based on height and gravity
+                    verticalVelocity += Mathf.Sqrt(jumpHeight * 2 * gravity);
+                }
             }
         }
 
@@ -134,22 +141,65 @@ public class PlayerMovement2 : MonoBehaviour
         }
         staminaBar.value = stamina;
 
-        if (move.x < 0)
-        {
-            transform.rotation = Quaternion.Lerp(left, right, Time.deltaTime * rotationSpeed); //rotate the player in the direction we are moving in
-        }
-        else if (move.x > 0)
-        {
-            transform.rotation = Quaternion.Lerp(right, left, Time.deltaTime * rotationSpeed); //rotate the player in the direction we are moving in
-        }
+       
 
         //============================== ROTATE CAT TO MATCH THE TERRAIN =========================
         // Find location and slope of ground below us
         Physics.Raycast(raycastPoint.position, Vector3.down, out hit, 1);    // Keep at specific height above terrain
 
         // Rotate to align with terrain
-        var targetRotation = Quaternion.FromToRotation(transform.up, hit.normal) * transform.rotation;
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 1000);
+        Quaternion target = Quaternion.Euler(0, 0, groundChecker.groundSlopeAngle);
+
+        if (!groundedPlayer) // how we rotate while airborne
+        {
+            if (move.x > 0)
+            {
+                target = Quaternion.Euler(0, 0, 0);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.deltaTime * 10);
+            }
+            else if (move.x < 0)
+            {
+                target = Quaternion.Euler(0, 180, 0);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.deltaTime * 10);
+            }
+        }
+
+        if (move.x < 0) // moving left
+        {
+            if (groundChecker.rearSlopeHit.distance > groundChecker.frontSlopeHit.distance)
+            {
+                target = Quaternion.Euler(0, 180, -groundChecker.groundSlopeAngle);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.deltaTime * 10);
+            }
+            else if (groundChecker.rearSlopeHit.distance < groundChecker.frontSlopeHit.distance)
+            {
+                target = Quaternion.Euler(0, 180, groundChecker.groundSlopeAngle);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.deltaTime * 10);
+            }
+            else
+            {
+                target = Quaternion.Euler(0, 180, 0);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.deltaTime * 10);
+            }
+        }
+        else if (move.x > 0) //moving right
+        {
+            if (groundChecker.rearSlopeHit.distance > groundChecker.frontSlopeHit.distance)
+            {
+                target = Quaternion.Euler(0, 0, groundChecker.groundSlopeAngle);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.deltaTime * 10);
+            }
+            else if (groundChecker.rearSlopeHit.distance < groundChecker.frontSlopeHit.distance)
+            {
+                target = Quaternion.Euler(0, 0, -groundChecker.groundSlopeAngle);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.deltaTime * 10);
+            }
+            else
+            {
+                target = Quaternion.Euler(0, 0, 0);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, Time.deltaTime * 10);
+            }
+        }
 
         controller.Move(move * Time.deltaTime); // always call at the end so everything else is already lined up properly
 

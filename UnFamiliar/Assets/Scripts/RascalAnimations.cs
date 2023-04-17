@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class RascalAnimations : MonoBehaviour
 {
@@ -18,6 +19,9 @@ public class RascalAnimations : MonoBehaviour
     public float countDown = 0.25f;
     private float fullCount = 0.25f;
 
+    private float runSmooth = 0.25f;
+    private float runSmoothFull = 0.25f;
+
     private void Start()
     {
         rascalAnimator= GetComponent<Animator>();
@@ -28,13 +32,13 @@ public class RascalAnimations : MonoBehaviour
     }
     public void Update()
     {
+        LockedCheck();
         WalkCheck();
         RunCheck();
         JumpCheck();
         GroundCheck();
     }
-
-    public void WalkCheck()
+    public void LockedCheck()
     {
         if (pm2.movementLocked == true) // if our movement is locked, then we are obviously idle
         {
@@ -42,6 +46,10 @@ public class RascalAnimations : MonoBehaviour
             rascalAnimator.SetBool("running", false);
             IdleRoll(); //roll to see which idle animation we play
         }
+    }
+
+    public void WalkCheck()
+    {
         if (pm2.groundedPlayer)
         {
             if (pm2.move.x > 0) // we are walking to the right
@@ -60,6 +68,7 @@ public class RascalAnimations : MonoBehaviour
             {
                 rascalAnimator.SetBool("walking", false);
                 rascalAnimator.SetBool("running", false);
+                runSmooth = runSmoothFull;
                 countDown -= Time.deltaTime; // small buffer to keep animations smooth
                 if (countDown <= 0)
                 {
@@ -73,17 +82,26 @@ public class RascalAnimations : MonoBehaviour
     {
         if (pm2.move.x >= 2.1f) // if our speed is over the walk threshold, then we are running
         {
-            rascalAnimator.SetBool("running", true);
-            rascalAnimator.SetBool("walking", false);
+            runSmooth -= Time.deltaTime;
+            if (runSmooth <= 0)
+            {
+                rascalAnimator.SetBool("running", true);
+                rascalAnimator.SetBool("walking", false);
+            }
         }
         else if (pm2.move.x <= -2.1f) // if our speed is over the walk threshold in a negtative direction, then we are running
         {
-            rascalAnimator.SetBool("running", true);
-            rascalAnimator.SetBool("walking", false);
+            runSmooth -= Time.deltaTime;
+            if (runSmooth <= 0)
+            {
+                rascalAnimator.SetBool("running", true);
+                rascalAnimator.SetBool("walking", false);
+            }
         }
         else if (pm2.move.x < 2.1 && pm2.move.x > -2.1) // if we are below the run threshold, we no longer play run animation
         {
             rascalAnimator.SetBool("running", false);
+            runSmooth = runSmoothFull;
         }
     }
     
